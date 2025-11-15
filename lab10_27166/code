@@ -1,0 +1,362 @@
+// lab10.cpp
+// CSE141 Intro to Programming (Fall'25) - Lab #10
+// 15th November, 2025
+//
+// Implements Tasks 1..10. Compile: g++ -std=c++17 lab10.cpp -o lab10
+
+#include <iostream>
+#include <iomanip>  // for setw
+#include <cstdint>  // for uint32_t
+using namespace std;
+
+/* -------------------------
+   Task 1: Array of Integers and Pointers
+   - create array<int, N>, create array of int* pointers of same size
+   - assign pointers to corresponding elements and print via pointers
+   ------------------------- */
+void task1_array_and_pointers() {
+    cout << "\n--- Task 1: Array of Integers and Pointers ---\n";
+
+    // Define array of integers (values stored contiguously in memory)
+    int nums[5] = {10, 20, 30, 40, 50};
+    // Define array of pointers (each element will point to an int)
+    int* ptrs[5];
+
+    // Memory layout:
+    // nums:  nums[0] | nums[1] | nums[2] | nums[3] | nums[4]
+    // ptrs:  ptrs[0] | ptrs[1] | ptrs[2] | ptrs[3] | ptrs[4]
+    // Each ptrs[i] will hold the memory address &nums[i].
+
+    for (int i = 0; i < 5; ++i) {
+        // Assign each pointer to the address of the corresponding element.
+        // ptrs[i] now stores &nums[i].
+        ptrs[i] = &nums[i];
+        // Comment: &nums[i] is the address of the i-th integer in the
+        // contiguous block 'nums'. On most systems sizeof(int) = 4.
+    }
+
+    // Print elements of the integer array using the array of pointers.
+    for (int i = 0; i < 5; ++i) {
+        // Dereference the pointer ptrs[i] to get the integer value.
+        cout << "ptrs[" << i << "] -> address: " << ptrs[i]
+             << ", value via *ptrs[" << i << "] = " << *ptrs[i] << '\n';
+    }
+}
+
+/* -------------------------
+   Task 2: One pointer to rule them all...
+   - fixed-size array of any type, pointer to first element, traverse using pointer
+   ------------------------- */
+void task2_one_pointer_traverse() {
+    cout << "\n--- Task 2: One pointer to rule them all... ---\n";
+
+    // Define array of chars (string-like)
+    char arr[] = {'A', 'B', 'C', 'D', 'E'};
+    const int N = sizeof(arr) / sizeof(arr[0]);
+
+    // Declare pointer to first element
+    char* p = arr; // arr decays to &arr[0]; p points to arr[0]
+
+    // Memory: arr[0] arr[1] arr[2] arr[3] arr[4]
+    // p points to arr[0]. Incrementing p moves to next byte/element.
+
+    for (int i = 0; i < N; ++i) {
+        cout << "arr[" << i << "] (via p[" << i << "]) = " << *(p + i)
+             << ", address = " << static_cast<void*>(p + i) << '\n';
+    }
+}
+
+/* -------------------------
+   Task 3: Swapping Values Using Pointers
+   - swap two variables using pointers
+   ------------------------- */
+void swap_via_pointers(int* a, int* b) {
+    // swap using temporary and pointer dereference
+    int tmp = *a;
+    *a = *b;
+    *b = tmp;
+}
+
+void task3_swap_using_pointers() {
+    cout << "\n--- Task 3: Swapping Values Using Pointers ---\n";
+
+    int x = 5;
+    int y = 9;
+    cout << "Before swap: x = " << x << " (addr " << &x << "), y = " << y << " (addr " << &y << ")\n";
+
+    // Swap by passing addresses to function
+    swap_via_pointers(&x, &y);
+
+    cout << "After swap:  x = " << x << " (addr " << &x << "), y = " << y << " (addr " << &y << ")\n";
+}
+
+/* -------------------------
+   Task 4: Initializing a Variable via Pointer
+   - function takes int* and sets *p = 123
+   ------------------------- */
+void set_to_123(int* p) {
+    // p holds address of some int; write 123 into that location
+    *p = 123;
+}
+
+void task4_init_via_pointer() {
+    cout << "\n--- Task 4: Initializing a Variable via Pointer ---\n";
+    int val = 0;
+    cout << "Before: val = " << val << " (addr " << &val << ")\n";
+    set_to_123(&val);
+    cout << "After:  val = " << val << " (addr " << &val << ")\n";
+}
+
+/* -------------------------
+   Task 5: There's nothing THERE!
+   - function takes int*; assigns it the address of local int (dangling)
+   - attempt to access value through pointer in main; explain why problematic
+   ------------------------- */
+void assign_local_address(int* p) {
+    // Local automatic variable lives on this function's stack frame.
+    int i = 2;
+    // The address of i is valid only during this function's execution.
+    // Assigning that address to the caller's pointer copies the address value,
+    // but the referenced object will go out-of-scope when the function returns.
+    p = &i; // This only modifies the local copy of the pointer parameter.
+    // IMPORTANT: Because p is passed by value, the caller's pointer is NOT changed.
+    // Also, even if we could change the caller's pointer (via int**), using the
+    // address of i after this function returns would be undefined behavior.
+}
+
+void assign_local_address_fix(int** pp) {
+    // This alternate version modifies the caller's pointer (via pointer-to-pointer)
+    int i = 2;
+    *pp = &i; // sets caller's pointer to address of local variable i
+    // When function returns, *pp becomes a dangling pointer -> DO NOT DEREFERENCE
+}
+
+void task5_dangling_pointer_demo() {
+    cout << "\n--- Task 5: There's nothing THERE! ---\n";
+
+    int* p = nullptr;
+
+    // Case A: calling assign_local_address(int* p) - this will NOT change caller's p
+    assign_local_address(p);
+    cout << "After assign_local_address(p): p = " << p
+         << " (still nullptr because function took pointer by value)\n";
+
+    // Case B: using assign_local_address_fix to force a dangling pointer (unsafe)
+    int* unsafePtr = nullptr;
+    assign_local_address_fix(&unsafePtr);
+    cout << "After assign_local_address_fix(&unsafePtr): unsafePtr = " << unsafePtr << '\n';
+    // Attempting to dereference unsafePtr would be undefined behavior.
+    // Example of dangerous code (commented out to avoid UB):
+    // cout << "*unsafePtr = " << *unsafePtr << '\n'; // <-- UB! may crash or print garbage.
+    cout << "DO NOT dereference unsafePtr: it points to a stack location that is out of scope.\n\n"
+         << "Explanation:\n"
+         << "- The local 'i' inside assign_local_address_fix lives on that function's stack frame.\n"
+         << "- Once the function returns, that stack frame can be reused; the address is dangling.\n"
+         << "- Dereferencing a dangling pointer is undefined behavior: could appear to work, crash, or corrupt data.\n";
+}
+
+/* -------------------------
+   Task 6: Observing Pointer Dereferencing Behavior
+   1) int i = 2; attempt to dereference it -> compile error (i is not a pointer)
+   2) int arr[]; *arr gives first element value
+   3) illustrate memory layout and explain difference
+   ------------------------- */
+void task6_observe_dereference() {
+    cout << "\n--- Task 6: Observing Pointer Dereferencing Behavior ---\n";
+
+    // 1) DEREFERENCING A NON-POINTER (compile-time error)
+    // int i = 2;
+    // *i; // ERROR: cannot dereference 'int' - i is not a pointer.
+    cout << "1) If you write 'int i = 2;' then attempt '*i', the compiler errors because i is not an address.\n";
+
+    // 2) DEREFERENCING AN ARRAY NAME
+    int arr[] = {7, 8, 9};
+    // In most expressions, 'arr' decays to pointer to first element -> &arr[0].
+    // *arr is equivalent to arr[0], so it yields the first integer (7).
+    cout << "2) For int arr[] = {7,8,9}; *arr == arr[0] == " << *arr << '\n';
+
+    // Memory illustration:
+    cout << "\nMemory layout illustration (conceptual):\n";
+    cout << "Single int variable (i): [ i (4 bytes) ]\n";
+    cout << "Array arr (3 ints): [ arr[0] ][ arr[1] ][ arr[2] ]\n";
+    cout << "When arr decays to pointer: arr -> address of arr[0]. *arr interprets that address as an int and reads arr[0].\n";
+
+    cout << "\nWhy differs:\n";
+    cout << "- 'i' is a value (an integer). The operator '*' expects an address (pointer). So '*i' is nonsensical.\n";
+    cout << "- 'arr' (in most contexts) is a pointer to the first element, so '*arr' is valid and yields the first element.\n";
+}
+
+/* -------------------------
+   Task 7: Memory Addresses in Functions and Recursion
+   - foo(int a) prints address of its parameter (passed by value)
+   - bar(int& a) prints address of parameter (reference)
+   - recursive versions print address each call
+   - show addresses from main and note differences
+   ------------------------- */
+
+// Print address of parameter when passed by value
+void foo(int a) {
+    // 'a' is a local copy stored on the stack (its own stack slot)
+    cout << "foo(value) -> value: " << a << ", address: " << &a << '\n';
+}
+
+// Print address when passed by reference
+void bar(int& a) {
+    // 'a' is an alias/reference to the original variable.
+    // Its address (when taking &a) is the address of the original variable.
+    cout << "bar(ref)   -> value: " << a << ", address: " << &a << '\n';
+}
+
+// Recursive versions: we include a 'times' parameter so recursion stops.
+// fooRec: pass by value; each recursive call creates a new 'a' local in new stack frame.
+void fooRec(int a, int times) {
+    if (times <= 0) return;
+    cout << "fooRec (times=" << times << ") value: " << a << ", address: " << &a << '\n';
+    // Each call passes a-1 to next; new stack frame => different address for 'a'
+    fooRec(a - 1, times - 1);
+}
+
+// barRec: pass by reference; we still use times to control recursion.
+// The parameter 'a' is a reference to the original variable, so &a should remain same across calls.
+void barRec(int& a, int times) {
+    if (times <= 0) return;
+    cout << "barRec (times=" << times << ") value: " << a << ", address: " << &a << '\n';
+    // Since the function signature expects int&, calling barRec(a, times-1) passes the same variable by reference.
+    barRec(a, times - 1);
+}
+
+void task7_addresses_and_recursion() {
+    cout << "\n--- Task 7: Memory Addresses in Functions and Recursion ---\n";
+
+    int v = 100;
+    cout << "In main: v = " << v << ", address of v = " << &v << '\n';
+
+    cout << "\nCall foo(v) (pass by value):\n";
+    foo(v); // prints address of local copy inside foo
+
+    cout << "\nCall bar(v) (pass by reference):\n";
+    bar(v); // prints address of the original variable
+
+    cout << "\nCall fooRec(v, 3) (recursive, pass-by-value):\n";
+    fooRec(v, 3); // each recursive call will have a different address for its local 'a'
+
+    cout << "\nCall barRec(v, 3) (recursive, pass-by-reference):\n";
+    barRec(v, 3); // address printed inside each call should match &v from main
+    cout << "\nObservations:\n"
+         << "- Passing by value: each invocation gets its own stack slot -> different addresses per call.\n"
+         << "- Passing by reference: function parameter is an alias to original -> address equals original's address across calls.\n";
+}
+
+/* -------------------------
+   Task 8: Sum of an Array via Pointer
+   - function takes pointer to int and size, sums elements
+   ------------------------- */
+int sum_array_via_pointer(int* arr, int size) {
+    // arr is pointer to first element. We iterate and sum *(arr + i).
+    int sum = 0;
+    for (int i = 0; i < size; ++i) {
+        sum += *(arr + i);
+    }
+    return sum;
+}
+
+void task8_sum_array() {
+    cout << "\n--- Task 8: Sum of an Array via Pointer ---\n";
+    int arr[] = {1, 2, 3, 4, 5};
+    int n = sizeof(arr) / sizeof(arr[0]);
+    int s = sum_array_via_pointer(arr, n); // arr decays to pointer to first element
+    cout << "Array elements: ";
+    for (int i = 0; i < n; ++i) cout << arr[i] << (i+1<n ? ", " : "\n");
+    cout << "Sum computed via pointer function = " << s << '\n';
+}
+
+/* -------------------------
+   Task 9: Return Address Conditionally
+   - isGreater(int& a, int& b) returns address of a if a > b, else nullptr
+   ------------------------- */
+int* isGreater(int& a, int& b) {
+    if (a > b) return &a; // return address of a (valid because a lives in caller)
+    return nullptr;
+}
+
+void task9_return_address_conditionally() {
+    cout << "\n--- Task 9: Return Address Conditionally ---\n";
+    int a = 10;
+    int b = 5;
+    int* addr = isGreater(a, b);
+    if (addr) {
+        cout << "Case a > b: isGreater returned address " << addr << ", *addr = " << *addr << '\n';
+    } else {
+        cout << "Case a > b: returned nullptr\n";
+    }
+
+    // Now case a <= b
+    a = 2; b = 7;
+    addr = isGreater(a, b);
+    if (addr) {
+        cout << "Case a <= b (unexpected): returned address " << addr << ", *addr = " << *addr << '\n';
+    } else {
+        cout << "Case a <= b: returned nullptr\n";
+    }
+}
+
+/* -------------------------
+   Task 10: Decoding a Cryptic Message
+   - Given 4 integers: interpret their bytes as characters and print the string.
+   - Note about endianness: code reads memory as bytes in machine's endianness.
+   ------------------------- */
+void task10_decode_message() {
+    cout << "\n--- Task 10: Decoding a Cryptic Message ---\n";
+
+    // The integers provided (likely 32-bit)
+    uint32_t data[4] = {1819043144u, 1461726319u, 1684828783u, 33u};
+
+    // The hint suggests that each byte corresponds to one ASCII character.
+    // We'll reinterpret the uint32_t array as a byte array and print characters.
+    // This relies on the machine's endianness. On a little-endian machine,
+    // the bytes in memory will match the order shown in the problem statement.
+    unsigned char* bytes = reinterpret_cast<unsigned char*>(data);
+
+    // Determine total bytes: 4 integers * 4 bytes each (assuming 32-bit uint32_t)
+    const size_t total_bytes = sizeof(data);
+
+    // Print the bytes in hex for inspection and then print as characters.
+    cout << "Raw bytes (hex):\n";
+    for (size_t i = 0; i < total_bytes; ++i) {
+        cout << "0x" << hex << setw(2) << setfill('0') << (int)bytes[i] << ' ';
+        if ((i + 1) % 8 == 0) cout << '\n';
+    }
+    cout << dec << setfill(' ') << '\n';
+
+    // Create string from bytes up to the first null (0x00) or total_bytes
+    string decoded;
+    for (size_t i = 0; i < total_bytes; ++i) {
+        if (bytes[i] == 0) break; // stop at null-terminator if present
+        decoded.push_back(static_cast<char>(bytes[i]));
+    }
+
+    cout << "Decoded message (interpreting bytes as ASCII): \"" << decoded << "\"\n";
+
+    cout << "\nNote: If compiling/running on big-endian architecture, the order of bytes\n"
+         << "may differ and you'd need to reorder bytes per-integer. Most modern x86/x86-64\n"
+         << "machines are little-endian, so this direct reinterpretation yields the expected\n"
+         << "message shown in the lab hint.\n";
+}
+
+int main() {
+    cout << "CSE141 Lab #10 Solutions (Tasks 1-10)\n";
+
+    task1_array_and_pointers();      // Task 1
+    task2_one_pointer_traverse();    // Task 2
+    task3_swap_using_pointers();     // Task 3
+    task4_init_via_pointer();        // Task 4
+    task5_dangling_pointer_demo();   // Task 5
+    task6_observe_dereference();     // Task 6
+    task7_addresses_and_recursion(); // Task 7
+    task8_sum_array();               // Task 8
+    task9_return_address_conditionally(); // Task 9
+    task10_decode_message();         // Task 10
+
+    cout << "\nAll tasks complete.\n";
+    return 0;
+}
